@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timer Controller</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f0520;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px; color: #e9d5ff;
+  }
+  .title { font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #c084fc; }
+  .display {
+    background: rgba(30, 10, 60, 0.88);
+    border: 1.5px solid rgba(167, 139, 250, 0.4);
+    border-radius: 18px;
+    padding: 22px 48px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .display-label { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #c084fc; }
+  .display-time { font-size: 64px; font-weight: 800; color: #f0e6ff; line-height: 1; letter-spacing: 3px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #4c1d95; transition: background 0.3s; }
+  .dot.running { background: #a855f7; animation: blink 1s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .controls { display: flex; gap: 14px; }
+  .btn {
+    padding: 14px 32px; border-radius: 12px; border: 2px solid #7c3aed;
+    background: #1e0b38; color: #e9d5ff; font-size: 15px; font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: all 0.15s; min-width: 110px;
+  }
+  .btn:hover { background: #3b0764; border-color: #a855f7; }
+  .btn:active { transform: scale(0.96); }
+  .btn.active { background: #5b21b6; border-color: #c084fc; color: #fff; }
+  .reset-btn {
+    background: transparent; border: 1px solid #4c1d9544; color: #7c3aed;
+    padding: 8px 22px; border-radius: 8px; font-size: 12px; font-family: inherit;
+    cursor: pointer; letter-spacing: 1px; transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: #7c3aed; color: #c084fc; }
+  .status { font-size: 11px; color: #a78bfa99; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="title">Timer Controller</div>
+<div class="display">
+  <div class="display-label">Timer</div>
+  <div class="display-time" id="time">00:00</div>
+  <div class="dot" id="dot"></div>
+</div>
+<div class="controls">
+  <button class="btn" id="startBtn">▶ Start</button>
+  <button class="btn" id="stopBtn">■ Stop</button>
+</div>
+<button class="reset-btn" id="resetBtn">↺ Reset</button>
+<div class="status" id="status">Connecting...</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsjUq6mvCwKGr9n64Oo7pGft8NqGcUIaU",
+    authDomain: "website-firebase-17385.firebaseapp.com",
+    databaseURL: "https://website-firebase-17385-default-rtdb.firebaseio.com",
+    projectId: "website-firebase-17385",
+    storageBucket: "website-firebase-17385.firebasestorage.app",
+    messagingSenderId: "934443626587",
+    appId: "1:934443626587:web:12d642d7d1fb4d7cc1cf7e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const timerRef = ref(db, 'timer');
+
+  let elapsed = 0, running = false, interval = null;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function format(ms) {
+    let s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+    s %= 60; m %= 60;
+    return h > 0 ? pad(h)+':'+pad(m)+':'+pad(s) : pad(m)+':'+pad(s);
+  }
+
+  function tick() { elapsed += 100; document.getElementById('time').textContent = format(elapsed); }
+
+  function updateUI() {
+    document.getElementById('time').textContent = format(elapsed);
+    document.getElementById('dot').className = 'dot' + (running ? ' running' : '');
+    document.getElementById('startBtn').className = 'btn' + (running ? ' active' : '');
+  }
+
+  function push() {
+    set(timerRef, { running, elapsed });
+  }
+
+  document.getElementById('startBtn').onclick = () => {
+    if (running) return;
+    running = true;
+    clearInterval(interval);
+    interval = setInterval(tick, 100);
+    updateUI(); push();
+  };
+
+  document.getElementById('stopBtn').onclick = () => {
+    if (!running) return;
+    running = false;
+    clearInterval(interval);
+    updateUI(); push();
+  };
+
+  document.getElementById('resetBtn').onclick = () => {
+    running = false; elapsed = 0;
+    clearInterval(interval);
+    updateUI(); push();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      running ? document.getElementById('stopBtn').click() : document.getElementById('startBtn').click();
+    }
+  });
+
+  onValue(timerRef, (snapshot) => {
+    const d = snapshot.val();
+    if (d) { elapsed = d.elapsed || 0; }
+    running = false;
+    clearInterval(interval);
+    updateUI();
+    document.getElementById('status').textContent = 'Live ✦';
+  }, { onlyOnce: true });
+</script>
+</body>
+</html>

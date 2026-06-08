@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Timer Overlay</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: transparent; width: fit-content; height: fit-content; }
+  .timer-box {
+    background: rgba(60, 20, 100, 0.45);
+    border: 1.5px solid rgba(167, 139, 250, 0.4);
+    border-radius: 16px;
+    padding: 10px 20px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    width: fit-content;
+  }
+  .time {
+    color: #f0e6ff;
+    font-family: 'Segoe UI', 'Courier New', monospace;
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="timer-box">
+  <div class="time" id="time">00:00</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsjUq6mvCwKGr9n64Oo7pGft8NqGcUIaU",
+    authDomain: "website-firebase-17385.firebaseapp.com",
+    databaseURL: "https://website-firebase-17385-default-rtdb.firebaseio.com",
+    projectId: "website-firebase-17385",
+    storageBucket: "website-firebase-17385.firebasestorage.app",
+    messagingSenderId: "934443626587",
+    appId: "1:934443626587:web:12d642d7d1fb4d7cc1cf7e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  let elapsed = 0;
+  let running = false;
+  let interval = null;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function format(ms) {
+    let s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+    s %= 60; m %= 60;
+    return h > 0 ? pad(h)+':'+pad(m)+':'+pad(s) : pad(m)+':'+pad(s);
+  }
+
+  function tick() { elapsed += 100; document.getElementById('time').textContent = format(elapsed); }
+
+  onValue(ref(db, 'timer'), (snapshot) => {
+    const d = snapshot.val();
+    if (!d) return;
+    elapsed = d.elapsed || 0;
+    running = d.running || false;
+    clearInterval(interval);
+    if (running) interval = setInterval(tick, 100);
+    document.getElementById('time').textContent = format(elapsed);
+  });
+</script>
+</body>
+</html>
